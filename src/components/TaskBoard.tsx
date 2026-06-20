@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { FilterBar } from "@/components/FilterBar";
 import { TaskForm } from "@/components/TaskForm";
 import { TaskList } from "@/components/TaskList";
@@ -9,35 +9,18 @@ import { STATUS_LABELS } from "@/lib/task-utils";
 import type { TaskFilter } from "@/types/task";
 
 export function TaskBoard() {
+  const [filter, setFilter] = useState<TaskFilter>("all");
   const {
     tasks,
     loading,
     error,
+    counts,
     refresh,
     createTask,
     updateTask,
     deleteTask,
     setTaskStatus,
-  } = useTasks();
-  const [filter, setFilter] = useState<TaskFilter>("all");
-
-  const counts = useMemo(
-    () => ({
-      all: tasks.length,
-      pending: tasks.filter((task) => task.status === "pending").length,
-      in_progress: tasks.filter((task) => task.status === "in_progress").length,
-      completed: tasks.filter((task) => task.status === "completed").length,
-    }),
-    [tasks],
-  );
-
-  const filteredTasks = useMemo(() => {
-    if (filter === "all") {
-      return tasks;
-    }
-
-    return tasks.filter((task) => task.status === filter);
-  }, [filter, tasks]);
+  } = useTasks(filter);
 
   const filterLabel = filter === "all" ? "All" : STATUS_LABELS[filter];
 
@@ -87,7 +70,7 @@ export function TaskBoard() {
           <p className="text-sm text-slate-500">Loading tasks...</p>
         ) : (
           <TaskList
-            tasks={filteredTasks}
+            tasks={tasks}
             filterLabel={filterLabel}
             onStatusChange={setTaskStatus}
             onDelete={deleteTask}
