@@ -47,3 +47,4 @@ next-env.d.ts
 # local docs (kept on disk, not committed)
 README.md
 INITIAL_SETUP.README
+DB_Connect_Features.md

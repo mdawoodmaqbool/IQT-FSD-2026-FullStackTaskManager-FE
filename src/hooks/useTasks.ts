@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ApiError, taskApi } from "@/lib/api";
-import type { CreateTaskInput, Task, TaskStatus, UpdateTaskInput } from "@/types/task";
+import { useMutation, useQuery } from "@apollo/client";
+import { useCallback, useMemo } from "react";
+import {
+  CREATE_TASK,
+  DELETE_TASK,
+  GET_TASKS,
+  GET_TASK_COUNTS,
+  UPDATE_TASK,
+} from "@/graphql/operations";
+import type { CreateTaskInput, Task, TaskFilter, TaskStatus, UpdateTaskInput } from "@/types/task";
 
 type UseTasksResult = {
   tasks: Task[];
   loading: boolean;
   error: string | null;
+  counts: Record<TaskFilter, number>;
   refresh: () => Promise<void>;
   createTask: (input: CreateTaskInput) => Promise<void>;
   updateTask: (id: string, input: UpdateTaskInput) => Promise<void>;
@@ -16,10 +24,6 @@ type UseTasksResult = {
 };
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message;
-  }
-
   if (error instanceof Error) {
     return error.message;
   }
@@ -27,88 +31,105 @@ function getErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-export function useTasks(): UseTasksResult {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+function toGraphqlStatus(filter: TaskFilter): TaskStatus | undefined {
+  return filter === "all" ? undefined : filter;
+}
+
+export function useTasks(filter: TaskFilter = "all"): UseTasksResult {
+  const statusVariable = toGraphqlStatus(filter);
+
+  const queryVariables = useMemo(
+    () => ({
+      status: statusVariable,
+      limit: 100,
+    }),
+    [statusVariable],
+  );
+
+  const {
+    data: tasksData,
+    loading: tasksLoading,
+    error: tasksError,
+    refetch: refetchTasks,
+  } = useQuery(GET_TASKS, {
+    variables: queryVariables,
+  });
+
+  const { data: countsData, refetch: refetchCounts } = useQuery(GET_TASK_COUNTS);
+
+  const refetchAll = useCallback(
+    () => [GET_TASKS, GET_TASK_COUNTS],
+    [],
+  );
+
+  const [createTaskMutation] = useMutation(CREATE_TASK, {
+    refetchQueries: refetchAll,
+  });
+
+  const [updateTaskMutation] = useMutation(UPDATE_TASK, {
+    refetchQueries: refetchAll,
+  });
+
+  const [deleteTaskMutation] = useMutation(DELETE_TASK, {
+    refetchQueries: refetchAll,
+  });
+
+  const tasks = useMemo(() => tasksData?.tasks ?? [], [tasksData?.tasks]);
+
+  const counts = useMemo(
+    () => ({
+      all: countsData?.taskCounts.all ?? 0,
+      pending: countsData?.taskCounts.pending ?? 0,
+      in_progress: countsData?.taskCounts.in_progress ?? 0,
+      completed: countsData?.taskCounts.completed ?? 0,
+    }),
+    [countsData?.taskCounts],
+  );
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    await Promise.all([refetchTasks(), refetchCounts()]);
+  }, [refetchCounts, refetchTasks]);
 
-    try {
-      const data = await taskApi.getAll();
-      setTasks(data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    taskApi
-      .getAll()
-      .then((data) => {
-        if (active) {
-          setTasks(data);
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setError(getErrorMessage(err));
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
+  const createTask = useCallback(
+    async (input: CreateTaskInput) => {
+      await createTaskMutation({
+        variables: {
+          title: input.title,
+          description: input.description,
+        },
+        optimisticResponse: {
+          createTask: {
+            __typename: "Task",
+            id: `temp-${Date.now()}`,
+            title: input.title,
+            description: input.description ?? null,
+            status: "pending",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
       });
+    },
+    [createTaskMutation],
+  );
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  const updateTask = useCallback(
+    async (id: string, input: UpdateTaskInput) => {
+      await updateTaskMutation({
+        variables: { id, ...input },
+      });
+    },
+    [updateTaskMutation],
+  );
 
-  const createTask = useCallback(async (input: CreateTaskInput) => {
-    setError(null);
-
-    try {
-      const task = await taskApi.create(input);
-      setTasks((current) => [task, ...current]);
-    } catch (err) {
-      setError(getErrorMessage(err));
-      throw err;
-    }
-  }, []);
-
-  const updateTask = useCallback(async (id: string, input: UpdateTaskInput) => {
-    setError(null);
-
-    try {
-      const updated = await taskApi.update(id, input);
-      setTasks((current) =>
-        current.map((task) => (task.id === id ? updated : task)),
-      );
-    } catch (err) {
-      setError(getErrorMessage(err));
-      throw err;
-    }
-  }, []);
-
-  const deleteTask = useCallback(async (id: string) => {
-    setError(null);
-
-    try {
-      await taskApi.remove(id);
-      setTasks((current) => current.filter((task) => task.id !== id));
-    } catch (err) {
-      setError(getErrorMessage(err));
-      throw err;
-    }
-  }, []);
+  const deleteTask = useCallback(
+    async (id: string) => {
+      await deleteTaskMutation({
+        variables: { id },
+      });
+    },
+    [deleteTaskMutation],
+  );
 
   const setTaskStatus = useCallback(
     async (id: string, status: TaskStatus) => {
@@ -119,8 +140,9 @@ export function useTasks(): UseTasksResult {
 
   return {
     tasks,
-    loading,
-    error,
+    loading: tasksLoading,
+    error: tasksError ? getErrorMessage(tasksError) : null,
+    counts,
     refresh,
     createTask,
     updateTask,
