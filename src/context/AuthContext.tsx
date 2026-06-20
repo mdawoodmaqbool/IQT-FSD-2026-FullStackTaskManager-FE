@@ -30,7 +30,7 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<MessageResponse>;
+  signup: (email: string, password: string, countryCode: string) => Promise<MessageResponse>;
   verifyOtp: (email: string, code: string) => Promise<void>;
   resendOtp: (email: string, type?: OtpType) => Promise<MessageResponse>;
   forgotPassword: (email: string) => Promise<MessageResponse>;
@@ -92,9 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signup = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, countryCode: string) => {
       const { data: signupData } = await signupMutation({
-        variables: { email, password },
+        variables: { email, password, countryCode },
       });
 
       return signupData.signup as MessageResponse;

@@ -1,0 +1,136 @@
+# External API Integration — Technical Guide (Roman English)
+
+Yeh document batata hai ke TaskManager mein **do free public APIs** kaise integrate ki gayi hain, security kya rakhi hai, aur assessment mein kya explain karna hai.
+
+---
+
+## 1. Kyun external API use ki?
+
+Assessment requirement thi ke app ke andar **ek real external service** connect ho.
+
+Hum ne yeh choose kiya:
+
+| Use case | API | Free? | API Key? |
+|----------|-----|-------|----------|
+| Signup country dropdown | [REST Countries](https://restcountries.com) | Haan | Nahi |
+| Dashboard weather | [Open-Meteo](https://open-meteo.com) | Haan | Nahi |
+
+Dono publicly available hain aur production demo ke liye reliable hain.
+
+---
+
+## 2. Architecture — Backend proxy pattern
+
+**Frontend seedha third-party API ko call NAHI karta.**
+
+```
+Browser → TaskManager Backend → External API
+                ↓
+           Validate + cache + rate limit
+```
+
+### Kyun proxy?
+
+1. **Security** — agar future mein paid API key chahiye ho to frontend par expose nahi hogi
+2. **Validation** — country code whitelist se check hota hai (SSRF / injection kam)
+3. **Rate limiting** — external routes par limit lagti hai
+4. **Timeout** — slow/hung API se server protect
+5. **Consistent errors** — frontend ko clean JSON milta hai
+
+---
+
+## 3. REST Countries API (Signup)
+
+### Flow
+1. User signup page kholta hai
+2. Frontend GraphQL `countries` query call karta hai
+3. Backend REST Countries se list fetch karta hai
+4. Response cache hoti hai **24 hours** (kam external calls)
+5. User country select karta hai → `countryCode` + `countryName` DB mein save
+
+### Backend (task-manager-be)
+- `src/services/externalApiService.js` → `getCountries()`, `validateCountryCode()`
+
+### API URL
+```
+GET https://restcountries.com/v3.1/all?fields=name,cca2,capital,capitalInfo
+```
+
+### Security checks
+- Sirf `cca2` (2-letter ISO code) accept — regex `/^[A-Z]{2}$/`
+- Code cached whitelist mein hona zaroori
+- Invalid code par signup reject
+
+---
+
+## 4. Open-Meteo API (Dashboard weather)
+
+### Flow
+1. Logged-in user dashboard kholta hai
+2. Backend user ka saved `countryCode` read karta hai
+3. Country ki capital coordinates resolve hoti hain
+4. Open-Meteo se current weather fetch
+5. `WeatherWidget` par data show
+
+### GraphQL
+```
+Query { countries { code name capital } }
+Query { weather { temperatureC condition humidity windSpeedKmh ... } }
+```
+
+Weather query **JWT required** — sirf apna country weather.
+
+---
+
+## 5. Security checklist
+
+| Risk | Solution |
+|------|----------|
+| SSRF | Fixed API URLs only |
+| Invalid country | ISO regex + whitelist |
+| API abuse | Rate limit 60/15min |
+| Slow API | 8s timeout |
+| Unauthorized weather | AuthGuard + backend JWT |
+| SQL injection | Prisma parameterized queries |
+
+---
+
+## 6. Frontend files
+
+| File | Kaam |
+|------|------|
+| `components/external/CountrySelect.tsx` | Signup dropdown |
+| `components/external/WeatherWidget.tsx` | Dashboard weather |
+| `graphql/external-operations.ts` | GraphQL queries |
+| `app/signup/page.tsx` | Country required |
+| `app/dashboard/page.tsx` | Weather + tasks |
+
+### Apollo optimization
+- `cache-and-network` on weather query
+- Countries loaded once per session for dropdown
+
+---
+
+## 7. Assessment sample Q&A
+
+**Q: Kaun si APIs?**  
+REST Countries + Open-Meteo, both free.
+
+**Q: Direct frontend call kyun nahi?**  
+Backend proxy = security + validation + rate limit.
+
+**Q: Weather location?**  
+User ke signup country se — not free-text input.
+
+---
+
+## 8. Test steps
+
+1. Signup → countries load
+2. Select country → register
+3. Dashboard → weather shows for your country
+4. Refresh weather button works
+
+---
+
+*Yeh file GitHub par commit hoti hai taake reviewers integration samajh saken.*

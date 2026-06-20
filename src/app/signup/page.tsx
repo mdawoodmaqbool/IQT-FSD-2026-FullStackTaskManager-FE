@@ -10,6 +10,7 @@ import {
   SubmitButton,
 } from "@/components/auth/AuthForm";
 import { GuestGuard, SiteHeader } from "@/components/auth/AuthGuard";
+import { CountrySelect } from "@/components/external/CountrySelect";
 import { useAuth } from "@/context/AuthContext";
 
 export default function SignupPage() {
@@ -18,6 +19,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [countryCode, setCountryCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,10 +32,15 @@ export default function SignupPage() {
       return;
     }
 
+    if (!countryCode) {
+      setError("Please select your country");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await signup(email.trim(), password);
+      await signup(email.trim(), password, countryCode);
       router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
@@ -49,7 +56,7 @@ export default function SignupPage() {
         <main className="flex justify-center px-4 py-12">
           <AuthCard
             title="Create account"
-            subtitle="Sign up with your email and password"
+            subtitle="Sign up with your email, password, and country"
             footer={
               <p className="text-slate-600">
                 Already have an account? <AuthLink href="/login">Login</AuthLink>
@@ -65,6 +72,11 @@ export default function SignupPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+              />
+              <CountrySelect
+                value={countryCode}
+                onChange={setCountryCode}
+                disabled={loading}
               />
               <FormInput
                 label="Password"
