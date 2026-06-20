@@ -48,3 +48,5 @@ next-env.d.ts
 README.md
 INITIAL_SETUP.README
 DB_Connect_Features.md
+auth.md
+PR_DESCRIPTION.md
