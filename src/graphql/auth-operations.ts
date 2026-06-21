@@ -1,8 +1,8 @@
 import { gql } from "@apollo/client";
 
 export const SIGNUP = gql`
-  mutation Signup($email: String!, $password: String!) {
-    signup(email: $email, password: $password) {
+  mutation Signup($email: String!, $password: String!, $countryCode: String!) {
+    signup(email: $email, password: $password, countryCode: $countryCode) {
       message
       email
     }
@@ -16,6 +16,8 @@ export const VERIFY_OTP = gql`
       user {
         id
         email
+        countryCode
+        countryName
         isVerified
         createdAt
       }
@@ -30,6 +32,8 @@ export const LOGIN = gql`
       user {
         id
         email
+        countryCode
+        countryName
         isVerified
         createdAt
       }
@@ -67,6 +71,8 @@ export const GET_ME = gql`
     me {
       id
       email
+      countryCode
+      countryName
       isVerified
       createdAt
     }
