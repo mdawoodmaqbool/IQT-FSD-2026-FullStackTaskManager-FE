@@ -4,9 +4,11 @@ import { FormEvent, useState } from "react";
 
 type TaskFormProps = {
   onSubmit: (input: { title: string; description: string }) => Promise<void>;
+  onSuccess?: () => void;
+  embedded?: boolean;
 };
 
-export function TaskForm({ onSubmit }: TaskFormProps) {
+export function TaskForm({ onSubmit, onSuccess, embedded = false }: TaskFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,6 +30,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
       });
       setTitle("");
       setDescription("");
+      onSuccess?.();
     } finally {
       setSubmitting(false);
     }
@@ -36,19 +39,25 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+      className={
+        embedded
+          ? undefined
+          : "rounded-lg border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-md"
+      }
     >
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-        New Task
-      </h2>
+      {!embedded ? (
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          New Task
+        </h2>
+      ) : null}
 
-      <div className="mt-3 space-y-3">
+      <div className={embedded ? "space-y-3" : "mt-3 space-y-3"}>
         <div>
-          <label htmlFor="title" className="mb-1 block text-sm font-medium text-slate-700">
+          <label htmlFor="task-title" className="mb-1 block text-sm font-medium text-slate-700">
             Title
           </label>
           <input
-            id="title"
+            id="task-title"
             type="text"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -61,13 +70,13 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
 
         <div>
           <label
-            htmlFor="description"
+            htmlFor="task-description"
             className="mb-1 block text-sm font-medium text-slate-700"
           >
             Description
           </label>
           <textarea
-            id="description"
+            id="task-description"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Optional details"

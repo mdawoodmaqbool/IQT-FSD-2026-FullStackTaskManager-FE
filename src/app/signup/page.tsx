@@ -41,7 +41,7 @@ export default function SignupPage() {
 
     try {
       await signup(email.trim(), password, countryCode);
-      router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
+      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
@@ -51,7 +51,7 @@ export default function SignupPage() {
 
   return (
     <GuestGuard>
-      <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen">
         <SiteHeader />
         <main className="flex justify-center px-4 py-12">
           <AuthCard

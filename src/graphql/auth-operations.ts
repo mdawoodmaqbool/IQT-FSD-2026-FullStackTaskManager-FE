@@ -3,15 +3,6 @@ import { gql } from "@apollo/client";
 export const SIGNUP = gql`
   mutation Signup($email: String!, $password: String!, $countryCode: String!) {
     signup(email: $email, password: $password, countryCode: $countryCode) {
-      message
-      email
-    }
-  }
-`;
-
-export const VERIFY_OTP = gql`
-  mutation VerifyOtp($email: String!, $code: String!) {
-    verifyOtp(email: $email, code: $code) {
       token
       user {
         id
@@ -41,26 +32,9 @@ export const LOGIN = gql`
   }
 `;
 
-export const RESEND_OTP = gql`
-  mutation ResendOtp($email: String!, $type: OtpType) {
-    resendOtp(email: $email, type: $type) {
-      message
-    }
-  }
-`;
-
-export const FORGOT_PASSWORD = gql`
-  mutation ForgotPassword($email: String!) {
-    forgotPassword(email: $email) {
-      message
-      email
-    }
-  }
-`;
-
 export const RESET_PASSWORD = gql`
-  mutation ResetPassword($email: String!, $code: String!, $password: String!) {
-    resetPassword(email: $email, code: $code, password: $password) {
+  mutation ResetPassword($email: String!, $password: String!) {
+    resetPassword(email: $email, password: $password) {
       message
     }
   }

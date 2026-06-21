@@ -4,78 +4,57 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
-import { useMutation, useQuery } from "@apollo/client";
-import {
-  FORGOT_PASSWORD,
-  GET_ME,
-  LOGIN,
-  RESEND_OTP,
-  RESET_PASSWORD,
-  SIGNUP,
-  VERIFY_OTP,
-} from "@/graphql/auth-operations";
+import { useApolloClient, useMutation, useQuery } from "@apollo/client";
+import { GET_ME, LOGIN, RESET_PASSWORD, SIGNUP } from "@/graphql/auth-operations";
 import {
   clearAuth,
   getStoredUser,
   getToken,
   saveAuth,
 } from "@/lib/auth-storage";
-import type { MessageResponse, OtpType, User } from "@/types/auth";
+import type { MessageResponse, User } from "@/types/auth";
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, countryCode: string) => Promise<MessageResponse>;
-  verifyOtp: (email: string, code: string) => Promise<void>;
-  resendOtp: (email: string, type?: OtpType) => Promise<MessageResponse>;
-  forgotPassword: (email: string) => Promise<MessageResponse>;
-  resetPassword: (
-    email: string,
-    code: string,
-    password: string,
-  ) => Promise<MessageResponse>;
-  logout: () => void;
+  signup: (email: string, password: string, countryCode: string) => Promise<void>;
+  resetPassword: (email: string, password: string) => Promise<MessageResponse>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readInitialAuth() {
-  if (typeof window === "undefined") {
-    return { hasToken: false, user: null as User | null };
-  }
-
-  const token = getToken();
-  return {
-    hasToken: Boolean(token),
-    user: token ? getStoredUser<User>() : null,
-  };
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const initialAuth = useMemo(() => readInitialAuth(), []);
+  const client = useApolloClient();
+  const [authReady, setAuthReady] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
+  const [cachedUser, setCachedUser] = useState<User | null>(null);
   const [liveUser, setLiveUser] = useState<User | null>(null);
-  const [liveToken, setLiveToken] = useState(false);
 
-  const tokenActive = liveToken || initialAuth.hasToken;
+  useEffect(() => {
+    const token = getToken();
+    setHasToken(Boolean(token));
+    setCachedUser(token ? getStoredUser<User>() : null);
+    setAuthReady(true);
+  }, []);
 
   const { data, loading: meLoading, error: meError } = useQuery(GET_ME, {
-    skip: !tokenActive,
+    skip: !authReady || !hasToken,
   });
 
-  const user = liveUser ?? data?.me ?? initialAuth.user;
-  const isAuthenticated = Boolean(user && tokenActive && !meError);
-  const loading = tokenActive && meLoading && !data && !meError;
+  const user = liveUser ?? data?.me ?? cachedUser;
+  const isAuthenticated = Boolean(authReady && hasToken && user && !meError);
+  const loading =
+    !authReady || (hasToken && meLoading && !data?.me && !meError && !cachedUser && !liveUser);
 
   const [loginMutation] = useMutation(LOGIN);
   const [signupMutation] = useMutation(SIGNUP);
-  const [verifyOtpMutation] = useMutation(VERIFY_OTP);
-  const [resendOtpMutation] = useMutation(RESEND_OTP);
-  const [forgotPasswordMutation] = useMutation(FORGOT_PASSWORD);
   const [resetPasswordMutation] = useMutation(RESET_PASSWORD);
 
   const login = useCallback(
@@ -86,7 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       saveAuth(loginData.login.token, loginData.login.user);
       setLiveUser(loginData.login.user);
-      setLiveToken(true);
+      setCachedUser(loginData.login.user);
+      setHasToken(true);
     },
     [loginMutation],
   );
@@ -97,50 +77,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         variables: { email, password, countryCode },
       });
 
-      return signupData.signup as MessageResponse;
+      saveAuth(signupData.signup.token, signupData.signup.user);
+      setLiveUser(signupData.signup.user);
+      setCachedUser(signupData.signup.user);
+      setHasToken(true);
     },
     [signupMutation],
   );
 
-  const verifyOtp = useCallback(
-    async (email: string, code: string) => {
-      const { data: verifyData } = await verifyOtpMutation({
-        variables: { email, code },
-      });
-
-      saveAuth(verifyData.verifyOtp.token, verifyData.verifyOtp.user);
-      setLiveUser(verifyData.verifyOtp.user);
-      setLiveToken(true);
-    },
-    [verifyOtpMutation],
-  );
-
-  const resendOtp = useCallback(
-    async (email: string, type: OtpType = "signup") => {
-      const { data: resendData } = await resendOtpMutation({
-        variables: { email, type },
-      });
-
-      return resendData.resendOtp as MessageResponse;
-    },
-    [resendOtpMutation],
-  );
-
-  const forgotPassword = useCallback(
-    async (email: string) => {
-      const { data: forgotData } = await forgotPasswordMutation({
-        variables: { email },
-      });
-
-      return forgotData.forgotPassword as MessageResponse;
-    },
-    [forgotPasswordMutation],
-  );
-
   const resetPassword = useCallback(
-    async (email: string, code: string, password: string) => {
+    async (email: string, password: string) => {
       const { data: resetData } = await resetPasswordMutation({
-        variables: { email, code, password },
+        variables: { email, password },
       });
 
       return resetData.resetPassword as MessageResponse;
@@ -148,11 +96,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [resetPasswordMutation],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     clearAuth();
     setLiveUser(null);
-    setLiveToken(false);
-  }, []);
+    setCachedUser(null);
+    setHasToken(false);
+    await client.clearStore();
+  }, [client]);
 
   const value = useMemo(
     () => ({
@@ -161,24 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       login,
       signup,
-      verifyOtp,
-      resendOtp,
-      forgotPassword,
       resetPassword,
       logout,
     }),
-    [
-      forgotPassword,
-      isAuthenticated,
-      loading,
-      login,
-      logout,
-      resendOtp,
-      resetPassword,
-      signup,
-      user,
-      verifyOtp,
-    ],
+    [isAuthenticated, loading, login, logout, resetPassword, signup, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

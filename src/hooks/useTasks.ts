@@ -10,6 +10,7 @@ import {
   UPDATE_TASK,
 } from "@/graphql/operations";
 import type { CreateTaskInput, Task, TaskFilter, TaskStatus, UpdateTaskInput } from "@/types/task";
+import { getErrorMessage } from "@/lib/get-error-message";
 
 type UseTasksResult = {
   tasks: Task[];
@@ -22,14 +23,6 @@ type UseTasksResult = {
   deleteTask: (id: string) => Promise<void>;
   setTaskStatus: (id: string, status: TaskStatus) => Promise<void>;
 };
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Something went wrong. Please try again.";
-}
 
 function toGraphqlStatus(filter: TaskFilter): TaskStatus | undefined {
   return filter === "all" ? undefined : filter;
@@ -124,11 +117,36 @@ export function useTasks(filter: TaskFilter = "all"): UseTasksResult {
 
   const deleteTask = useCallback(
     async (id: string) => {
-      await deleteTaskMutation({
+      const { data } = await deleteTaskMutation({
         variables: { id },
+        update(cache) {
+          const existing = cache.readQuery<{ tasks: Task[] }>({
+            query: GET_TASKS,
+            variables: queryVariables,
+          });
+
+          if (existing?.tasks) {
+            cache.writeQuery({
+              query: GET_TASKS,
+              variables: queryVariables,
+              data: {
+                tasks: existing.tasks.filter((task) => task.id !== id),
+              },
+            });
+          }
+
+          cache.evict({ id: cache.identify({ __typename: "Task", id }) });
+          cache.gc();
+        },
+        refetchQueries: [{ query: GET_TASK_COUNTS }],
+        awaitRefetchQueries: true,
       });
+
+      if (!data?.deleteTask) {
+        throw new Error("Failed to delete task.");
+      }
     },
-    [deleteTaskMutation],
+    [deleteTaskMutation, queryVariables],
   );
 
   const setTaskStatus = useCallback(
