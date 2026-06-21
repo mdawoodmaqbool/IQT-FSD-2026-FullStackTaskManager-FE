@@ -3,7 +3,7 @@ import { SiteHeader } from "@/components/auth/AuthGuard";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto flex max-w-5xl flex-col items-center px-4 py-16 text-center sm:px-6 sm:py-24">
         <h1 className="max-w-2xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
@@ -28,19 +28,19 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="mt-16 grid w-full max-w-3xl gap-4 text-left sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="rounded-lg border border-slate-200/80 bg-white/85 p-4 shadow-sm backdrop-blur-sm">
             <h2 className="font-semibold text-slate-900">Secure auth</h2>
             <p className="mt-1 text-sm text-slate-600">
               Sign up with email, verify OTP, and sign in with JWT protection.
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="rounded-lg border border-slate-200/80 bg-white/85 p-4 shadow-sm backdrop-blur-sm">
             <h2 className="font-semibold text-slate-900">Task tracking</h2>
             <p className="mt-1 text-sm text-slate-600">
               Create tasks, update status, and filter by pending or completed work.
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="rounded-lg border border-slate-200/80 bg-white/85 p-4 shadow-sm backdrop-blur-sm">
             <h2 className="font-semibold text-slate-900">Fast UI</h2>
             <p className="mt-1 text-sm text-slate-600">
               GraphQL and Apollo cache keep the dashboard responsive.

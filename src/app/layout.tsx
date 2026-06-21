@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ConditionalPageBackground } from "@/components/ConditionalPageBackground";
 import { AppProviders } from "@/providers/AppProviders";
 import "./globals.css";
 
@@ -20,8 +21,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full`}>
-      <body className="min-h-full bg-slate-100 font-sans text-slate-900 antialiased">
-        <AppProviders>{children}</AppProviders>
+      <body className="min-h-full font-sans text-slate-900 antialiased">
+        <ConditionalPageBackground />
+        <div style={{ position: "relative", zIndex: 1, minHeight: "100vh" }}>
+          <AppProviders>{children}</AppProviders>
+        </div>
       </body>
     </html>
   );

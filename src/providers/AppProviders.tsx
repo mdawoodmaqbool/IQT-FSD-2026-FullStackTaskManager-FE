@@ -2,6 +2,7 @@
 
 import { ApolloProvider } from "@/providers/ApolloProvider";
 import { AuthProvider } from "@/context/AuthContext";
+import { SnackbarProvider } from "@/context/SnackbarContext";
 
 type AppProvidersProps = {
   children: React.ReactNode;
@@ -10,7 +11,9 @@ type AppProvidersProps = {
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <ApolloProvider>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <SnackbarProvider>{children}</SnackbarProvider>
+      </AuthProvider>
     </ApolloProvider>
   );
 }

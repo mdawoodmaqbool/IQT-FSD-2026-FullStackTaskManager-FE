@@ -11,11 +11,17 @@ type FilterBarProps = {
   active: TaskFilter;
   onChange: (filter: TaskFilter) => void;
   counts: Record<TaskFilter, number>;
+  variant?: "row" | "column";
 };
 
-export function FilterBar({ active, onChange, counts }: FilterBarProps) {
+export function FilterBar({
+  active,
+  onChange,
+  counts,
+  variant = "row",
+}: FilterBarProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={variant === "column" ? "flex flex-col gap-2" : "flex flex-wrap gap-2"}>
       {FILTERS.map((filter) => {
         const isActive = active === filter.value;
 
@@ -25,6 +31,8 @@ export function FilterBar({ active, onChange, counts }: FilterBarProps) {
             type="button"
             onClick={() => onChange(filter.value)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              variant === "column" ? "w-full text-left" : ""
+            } ${
               isActive
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"

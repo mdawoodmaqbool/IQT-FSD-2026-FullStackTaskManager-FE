@@ -37,7 +37,7 @@ export default function LoginPage() {
 
   return (
     <GuestGuard>
-      <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen">
         <SiteHeader />
         <main className="flex justify-center px-4 py-12">
           <AuthCard

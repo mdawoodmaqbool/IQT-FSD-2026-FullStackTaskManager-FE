@@ -8,46 +8,34 @@ import {
   ErrorAlert,
   FormInput,
   SubmitButton,
-  SuccessAlert,
 } from "@/components/auth/AuthForm";
 import { GuestGuard, SiteHeader } from "@/components/auth/AuthGuard";
-import { useAuth } from "@/context/AuthContext";
 
 export default function ForgotPasswordPage() {
-  const { forgotPassword } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setSuccess("");
-    setLoading(true);
 
-    try {
-      const result = await forgotPassword(email.trim());
-      setSuccess(result.message);
-      router.push(
-        `/reset-password?email=${encodeURIComponent(result.email ?? email.trim())}`,
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
-    } finally {
-      setLoading(false);
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
     }
+
+    router.push(`/reset-password?email=${encodeURIComponent(email.trim())}`);
   }
 
   return (
     <GuestGuard>
-      <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen">
         <SiteHeader />
         <main className="flex justify-center px-4 py-12">
           <AuthCard
             title="Forgot password"
-            subtitle="We will email you a reset code if the account exists"
+            subtitle="Enter your email to reset your password"
             footer={
               <p className="text-slate-600">
                 Remembered it? <AuthLink href="/login">Back to login</AuthLink>
@@ -56,7 +44,6 @@ export default function ForgotPasswordPage() {
           >
             <form onSubmit={handleSubmit} className="space-y-4">
               {error ? <ErrorAlert message={error} /> : null}
-              {success ? <SuccessAlert message={success} /> : null}
               <FormInput
                 label="Email"
                 type="email"
@@ -65,7 +52,7 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <SubmitButton loading={loading}>Send reset code</SubmitButton>
+              <SubmitButton loading={false}>Continue</SubmitButton>
             </form>
           </AuthCard>
         </main>
