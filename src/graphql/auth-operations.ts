@@ -32,14 +32,6 @@ export const LOGIN = gql`
   }
 `;
 
-export const RESET_PASSWORD = gql`
-  mutation ResetPassword($email: String!, $password: String!) {
-    resetPassword(email: $email, password: $password) {
-      message
-    }
-  }
-`;
-
 export const GET_ME = gql`
   query GetMe {
     me {

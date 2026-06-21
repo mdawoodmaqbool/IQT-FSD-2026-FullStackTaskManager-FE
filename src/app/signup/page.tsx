@@ -12,6 +12,7 @@ import {
 import { GuestGuard, SiteHeader } from "@/components/auth/AuthGuard";
 import { CountrySelect } from "@/components/external/CountrySelect";
 import { useAuth } from "@/context/AuthContext";
+import { getErrorMessage } from "@/lib/get-error-message";
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -43,7 +44,7 @@ export default function SignupPage() {
       await signup(email.trim(), password, countryCode);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

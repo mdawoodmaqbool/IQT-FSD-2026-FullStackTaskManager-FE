@@ -29,8 +29,3 @@ export type AuthPayload = {
   token: string;
   user: User;
 };
-
-export type MessageResponse = {
-  message: string;
-  email?: string;
-};

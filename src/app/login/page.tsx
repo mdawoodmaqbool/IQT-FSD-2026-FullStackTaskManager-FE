@@ -10,6 +10,7 @@ import {
   SubmitButton,
 } from "@/components/auth/AuthForm";
 import { GuestGuard, SiteHeader } from "@/components/auth/AuthGuard";
+import { getErrorMessage } from "@/lib/get-error-message";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
@@ -29,7 +30,7 @@ export default function LoginPage() {
       await login(email.trim(), password);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -67,9 +68,6 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <div className="text-right text-sm">
-                <AuthLink href="/forgot-password">Forgot password?</AuthLink>
-              </div>
               <SubmitButton loading={loading}>Login</SubmitButton>
             </form>
           </AuthCard>

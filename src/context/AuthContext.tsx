@@ -9,14 +9,14 @@ import {
   useState,
 } from "react";
 import { useApolloClient, useMutation, useQuery } from "@apollo/client";
-import { GET_ME, LOGIN, RESET_PASSWORD, SIGNUP } from "@/graphql/auth-operations";
+import { GET_ME, LOGIN, SIGNUP } from "@/graphql/auth-operations";
 import {
   clearAuth,
   getStoredUser,
   getToken,
   saveAuth,
 } from "@/lib/auth-storage";
-import type { MessageResponse, User } from "@/types/auth";
+import type { User } from "@/types/auth";
 
 type AuthContextValue = {
   user: User | null;
@@ -24,11 +24,27 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, countryCode: string) => Promise<void>;
-  resetPassword: (email: string, password: string) => Promise<MessageResponse>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function isUnauthenticatedError(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("graphQLErrors" in error)) {
+    return false;
+  }
+
+  const graphQLErrors = (error as { graphQLErrors?: Array<{ extensions?: { code?: string; status?: number } }> })
+    .graphQLErrors;
+
+  return Boolean(
+    graphQLErrors?.some(
+      (graphQLError) =>
+        graphQLError.extensions?.code === "UNAUTHENTICATED" ||
+        graphQLError.extensions?.status === 401,
+    ),
+  );
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const client = useApolloClient();
@@ -46,22 +62,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const { data, loading: meLoading, error: meError } = useQuery(GET_ME, {
     skip: !authReady || !hasToken,
+    fetchPolicy: "network-only",
+    errorPolicy: "all",
   });
 
+  useEffect(() => {
+    if (!authReady || !hasToken || meLoading) {
+      return;
+    }
+
+    if (!isUnauthenticatedError(meError)) {
+      return;
+    }
+
+    clearAuth();
+    setLiveUser(null);
+    setCachedUser(null);
+    setHasToken(false);
+    void client.clearStore();
+  }, [authReady, client, hasToken, meError, meLoading]);
+
   const user = liveUser ?? data?.me ?? cachedUser;
-  const isAuthenticated = Boolean(authReady && hasToken && user && !meError);
-  const loading =
-    !authReady || (hasToken && meLoading && !data?.me && !meError && !cachedUser && !liveUser);
+  const isAuthenticated = Boolean(authReady && hasToken && user);
+  const loading = !authReady || (hasToken && !user && meLoading);
 
   const [loginMutation] = useMutation(LOGIN);
   const [signupMutation] = useMutation(SIGNUP);
-  const [resetPasswordMutation] = useMutation(RESET_PASSWORD);
 
   const login = useCallback(
     async (email: string, password: string) => {
       const { data: loginData } = await loginMutation({
         variables: { email, password },
       });
+
+      if (!loginData?.login) {
+        throw new Error("Login failed. Please try again.");
+      }
 
       saveAuth(loginData.login.token, loginData.login.user);
       setLiveUser(loginData.login.user);
@@ -77,23 +113,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         variables: { email, password, countryCode },
       });
 
+      if (!signupData?.signup) {
+        throw new Error("Signup failed. Please try again.");
+      }
+
       saveAuth(signupData.signup.token, signupData.signup.user);
       setLiveUser(signupData.signup.user);
       setCachedUser(signupData.signup.user);
       setHasToken(true);
     },
     [signupMutation],
-  );
-
-  const resetPassword = useCallback(
-    async (email: string, password: string) => {
-      const { data: resetData } = await resetPasswordMutation({
-        variables: { email, password },
-      });
-
-      return resetData.resetPassword as MessageResponse;
-    },
-    [resetPasswordMutation],
   );
 
   const logout = useCallback(async () => {
@@ -111,10 +140,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       login,
       signup,
-      resetPassword,
       logout,
     }),
-    [isAuthenticated, loading, login, logout, resetPassword, signup, user],
+    [isAuthenticated, loading, login, logout, signup, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
